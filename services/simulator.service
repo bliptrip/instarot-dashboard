@@ -1,0 +1,20 @@
+[Unit]
+Description=Instarot ESP32 PID Simulator
+After=mosquitto.service
+Wants=mosquitto.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/maule/applications/instarot-dashboard/simulator/esp32_simulator.py
+WorkingDirectory=/home/maule/applications/instarot-dashboard/simulator
+Restart=always
+RestartSec=5
+User=maule
+
+# Override any of these to configure the simulator:
+#Environment="SIMULATOR_HOSTNAME=simulator"
+#Environment="MQTT_BROKER=phytopi.local"
+#Environment="MQTT_PORT=1883"
+#Environment="SIMULATOR_STATE_FILE=/home/maule/applications/instarot-dashboard/simulator/simulator_state.json"
+
+[Install]
+WantedBy=multi-user.target
