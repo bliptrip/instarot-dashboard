@@ -1,0 +1,13 @@
+[Unit]
+Description=Instarot MQTT Collector
+After=mosquitto.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/maule/applications/instarot-dashboard/collector/mqtt_collector.py
+WorkingDirectory=/home/maule/applications/instarot-dashboard
+Restart=always
+RestartSec=5
+User=maule
+
+[Install]
+WantedBy=multi-user.target

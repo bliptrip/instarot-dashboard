@@ -1,0 +1,13 @@
+[Unit]
+Description=Instarot Dashboard (Flask)
+After=collector.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/maule/applications/instarot-dashboard/api/app.py
+WorkingDirectory=/home/maule/applications/instarot-dashboard
+Restart=always
+RestartSec=5
+User=maule
+
+[Install]
+WantedBy=multi-user.target

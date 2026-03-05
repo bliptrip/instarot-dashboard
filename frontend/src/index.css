@@ -1,0 +1,78 @@
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --border: #2a2d3a;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --orange: #f97316;
+  --blue: #60a5fa;
+  --green: #a3e635;
+  --red: #f87171;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 2rem;
+}
+
+h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--orange); }
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.card.selected { border-color: var(--orange); }
+.card.offline  { opacity: 0.5; }
+.card-header   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.card-header h2 { font-size: 0.95rem; }
+
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.online .status-dot { background: var(--green); }
+
+.temp { font-size: 2rem; font-weight: 700; color: var(--orange); margin: 0.25rem 0; }
+.tc2  { font-size: 0.85rem; color: var(--blue); margin-bottom: 0.5rem; }
+.meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.75rem; }
+
+.setpoint-control { display: flex; gap: 0.5rem; align-items: center; }
+.setpoint-control input {
+  flex: 1; padding: 0.3rem 0.5rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.85rem;
+}
+.setpoint-control button {
+  padding: 0.3rem 0.6rem;
+  background: var(--orange); border: none;
+  border-radius: 5px; color: #000; font-weight: 600;
+  cursor: pointer; font-size: 0.85rem;
+}
+.status.sent  { color: var(--green); font-size: 0.75rem; }
+.status.error { color: var(--red);   font-size: 0.75rem; }
+
+.chart-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+.range-selector { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.range-selector button {
+  padding: 0.3rem 0.75rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 0.85rem;
+}
+.range-selector button.active { border-color: var(--orange); color: var(--orange); }
