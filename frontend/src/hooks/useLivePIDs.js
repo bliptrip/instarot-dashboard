@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const MAX_POINTS = 300;
+const MAX_POINTS = 4096;
 
 export default function useLivePIDs(device) {
   const [history, setHistory] = useState([]);

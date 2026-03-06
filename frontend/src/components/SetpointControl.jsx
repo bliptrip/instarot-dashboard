@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function SetpointControl({ device, current }) {
   const [value,  setValue]  = useState(current ?? "");
+
+  useEffect(() => {
+    if (current !== undefined && value === "") setValue(String(current));
+  }, [current]);
   const [status, setStatus] = useState(null);
 
   const send = () => {

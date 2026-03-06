@@ -21,11 +21,30 @@ body {
 
 h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--orange); }
 
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (min-width: 900px) {
+  .main-layout {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .device-grid {
+    flex-shrink: 0;
+  }
+  .chart-side {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
 .device-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min-content, 1fr));
   gap: 1rem;
-  margin-bottom: 2rem;
 }
 
 .card {
@@ -60,6 +79,21 @@ h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--orange); }
   border-radius: 5px; color: #000; font-weight: 600;
   cursor: pointer; font-size: 0.85rem;
 }
+
+.pid-control { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem; }
+.pid-row { display: flex; align-items: center; gap: 0.5rem; }
+.pid-row label { width: 2rem; font-size: 0.8rem; color: var(--muted); flex-shrink: 0; }
+.pid-row input {
+  flex: 1; padding: 0.3rem 0.5rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.85rem;
+}
+.pid-row button {
+  padding: 0.3rem 0.6rem;
+  background: var(--orange); border: none;
+  border-radius: 5px; color: #000; font-weight: 600;
+  cursor: pointer; font-size: 0.85rem;
+}
 .status.sent  { color: var(--green); font-size: 0.75rem; }
 .status.error { color: var(--red);   font-size: 0.75rem; }
 
@@ -76,3 +110,21 @@ h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--orange); }
   border-radius: 5px; color: var(--muted); cursor: pointer; font-size: 0.85rem;
 }
 .range-selector button.active { border-color: var(--orange); color: var(--orange); }
+
+.live-toggle {
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px; border: 1px solid; cursor: pointer; font-size: 0.85rem;
+}
+.live-toggle.live   { background: var(--bg); border-color: var(--border); color: var(--muted); }
+.live-toggle.paused { background: var(--bg); border-color: var(--green);  color: var(--green); }
+
+.pid-section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.35rem 0; margin-top: 0.75rem; margin-bottom: 0.25rem;
+  cursor: pointer; user-select: none;
+  font-weight: 600; font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.pid-section-header:hover { color: var(--orange); }
+.pid-section-chevron { display: inline-block; transition: transform 0.2s; }
+.pid-section-chevron.collapsed { transform: rotate(-90deg); }
