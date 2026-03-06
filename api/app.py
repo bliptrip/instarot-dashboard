@@ -92,7 +92,7 @@ def stream_pids(device):
                 "ts": payload.get("ts", now),
             }
             log.debug(f"Received payload on {msg.topic}: {pid_state}")
-            q.put(pid_state)
+            q.put(json.dumps(pid_state))
         except Exception as e:
             log.warning(f"Bad payload on {msg.topic}: {e}")
             pass
