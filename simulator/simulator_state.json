@@ -1,0 +1,15 @@
+{
+  "setpoint": 82.0,
+  "kp": 2.0,
+  "ki": 0.01,
+  "kd": 1.2,
+  "temperature": 81.9955017185761,
+  "tc2_temp": 77.99522756707944,
+  "t_ambient": 25.0,
+  "p_max": 100.0,
+  "k_loss": 1.0,
+  "thermal_mass": 200.0,
+  "noise_std": 0.15,
+  "tc2_offset": -4.0,
+  "tc2_tau": 80.0
+}

@@ -37,8 +37,8 @@ import paho.mqtt.client as mqtt
 # ---------------------------------------------------------------------------
 # Configuration – override via environment variables
 # ---------------------------------------------------------------------------
-HOSTNAME        = os.environ.get("SIMULATOR_HOSTNAME",   "simulator")
-MQTT_BROKER     = os.environ.get("MQTT_BROKER",          "phytopi.local")
+HOSTNAME        = os.environ.get("SIMULATOR_HOSTNAME",   "nico")
+MQTT_BROKER     = os.environ.get("MQTT_BROKER",          "localhost")
 MQTT_PORT       = int(os.environ.get("MQTT_PORT",        "1883"))
 STATE_FILE      = os.environ.get("SIMULATOR_STATE_FILE",
                                  os.path.join(os.path.dirname(__file__),
@@ -60,7 +60,7 @@ TC2_TAU     = 60.0    # s   tc2 lags tc1 (slower thermal path)
 # ---------------------------------------------------------------------------
 # PID defaults
 # ---------------------------------------------------------------------------
-DEFAULT_SETPOINT = 0.0   # Cold at startup unless overridden
+DEFAULT_SETPOINT = 25.0   # Cold at startup unless overridden
 DEFAULT_KP       = 2.0
 DEFAULT_KI       = 0.05
 DEFAULT_KD       = 1.0
@@ -71,7 +71,7 @@ OUTPUT_MAX       = 100.0
 # Logging
 # ---------------------------------------------------------------------------
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s %(levelname)s %(message)s",
     stream=sys.stdout,
 )
@@ -83,12 +83,20 @@ log = logging.getLogger(__name__)
 
 def load_state() -> dict:
     defaults = {
-        "setpoint":    DEFAULT_SETPOINT,
-        "kp":          DEFAULT_KP,
-        "ki":          DEFAULT_KI,
-        "kd":          DEFAULT_KD,
-        "temperature": T_AMBIENT,
-        "tc2_temp":    T_AMBIENT + TC2_OFFSET,
+        "setpoint":     DEFAULT_SETPOINT,
+        "kp":           DEFAULT_KP,
+        "ki":           DEFAULT_KI,
+        "kd":           DEFAULT_KD,
+        "temperature":  T_AMBIENT,
+        "tc2_temp":     T_AMBIENT + TC2_OFFSET,
+        # Thermal model constants (user-configurable, not persisted by save_state)
+        "t_ambient":    T_AMBIENT,
+        "p_max":        P_MAX,
+        "k_loss":       K_LOSS,
+        "thermal_mass": THERMAL_MASS,
+        "noise_std":    NOISE_STD,
+        "tc2_offset":   TC2_OFFSET,
+        "tc2_tau":      TC2_TAU,
     }
     if os.path.exists(STATE_FILE):
         try:
@@ -103,11 +111,19 @@ def load_state() -> dict:
 
 
 def save_state(state: dict):
-    keys = ("setpoint", "kp", "ki", "kd", "temperature", "tc2_temp")
+    runtime_keys = ("setpoint", "kp", "ki", "kd", "temperature", "tc2_temp")
     try:
         os.makedirs(os.path.dirname(os.path.abspath(STATE_FILE)), exist_ok=True)
+        existing = {}
+        if os.path.exists(STATE_FILE):
+            try:
+                with open(STATE_FILE) as f:
+                    existing = json.load(f)
+            except Exception:
+                pass
+        existing.update({k: state[k] for k in runtime_keys})
         with open(STATE_FILE, "w") as f:
-            json.dump({k: state[k] for k in keys}, f, indent=2)
+            json.dump(existing, f, indent=2)
     except Exception as e:
         log.warning(f"Could not save state: {e}")
 
@@ -163,27 +179,37 @@ class PIDController:
 class ThermalModel:
     """First-order linear thermal model with a lagged secondary sensor."""
 
-    def __init__(self, initial_temp: float, initial_tc2: float):
-        self.temp     = float(initial_temp)
-        self.tc2_temp = float(initial_tc2)
+    def __init__(self, initial_temp: float, initial_tc2: float,
+                 t_ambient: float, p_max: float, k_loss: float,
+                 thermal_mass: float, noise_std: float,
+                 tc2_offset: float, tc2_tau: float):
+        self.temp        = float(initial_temp)
+        self.tc2_temp    = float(initial_tc2)
+        self.t_ambient   = t_ambient
+        self.p_max       = p_max
+        self.k_loss      = k_loss
+        self.thermal_mass = thermal_mass
+        self.noise_std   = noise_std
+        self.tc2_offset  = tc2_offset
+        self.tc2_tau     = tc2_tau
 
     def step(self, output_pct: float, dt: float):
         """Advance simulation by dt seconds given heater output 0–100 %."""
         # Primary thermal node
-        p_heat  = P_MAX * (output_pct / 100.0)
-        p_loss  = K_LOSS * (self.temp - T_AMBIENT)
-        dT      = (p_heat - p_loss) / THERMAL_MASS
+        p_heat  = self.p_max * (output_pct / 100.0)
+        p_loss  = self.k_loss * (self.temp - self.t_ambient)
+        dT      = (p_heat - p_loss) / self.thermal_mass
         self.temp += dT * dt
 
         # Secondary sensor: first-order lag toward tc1 + fixed spatial offset
-        target_tc2 = self.temp + TC2_OFFSET
-        self.tc2_temp += (target_tc2 - self.tc2_temp) / TC2_TAU * dt
+        target_tc2 = self.temp + self.tc2_offset
+        self.tc2_temp += (target_tc2 - self.tc2_temp) / self.tc2_tau * dt
 
     def read_tc1(self) -> float:
-        return self.temp + random.gauss(0, NOISE_STD)
+        return self.temp + random.gauss(0, self.noise_std)
 
     def read_tc2(self) -> float:
-        return self.tc2_temp + random.gauss(0, NOISE_STD)
+        return self.tc2_temp + random.gauss(0, self.noise_std)
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +224,13 @@ class ESP32Simulator:
         self._thermal = ThermalModel(
             self._state["temperature"],
             self._state["tc2_temp"],
+            t_ambient=self._state["t_ambient"],
+            p_max=self._state["p_max"],
+            k_loss=self._state["k_loss"],
+            thermal_mass=self._state["thermal_mass"],
+            noise_std=self._state["noise_std"],
+            tc2_offset=self._state["tc2_offset"],
+            tc2_tau=self._state["tc2_tau"],
         )
         self._pid = PIDController(
             self._state["kp"],
@@ -207,8 +240,8 @@ class ESP32Simulator:
         self._output         = 0.0
         self._publish_pids   = False
         self._running        = True
-        self._last_save      = time.time()
-        self._last_state_pub = time.time() - STATE_INTERVAL
+        self._last_save      = time.monotonic()
+        self._last_state_pub = time.monotonic() - STATE_INTERVAL
 
         # MQTT
         self._client = mqtt.Client(client_id=f"esp32-sim-{HOSTNAME}")
@@ -295,6 +328,8 @@ class ESP32Simulator:
 
     def _sim_loop(self):
         last_t = time.monotonic()
+
+        log.debug("Starting _sim_loop()")
 
         while self._running:
             now = time.monotonic()
