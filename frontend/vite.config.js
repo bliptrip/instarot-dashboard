@@ -8,6 +8,7 @@ export default defineConfig({
       "/api":    "http://localhost:5000",
       "/stream": "http://localhost:5000",
     },
+    allowedHosts: ["mycopi"]
   },
   build: {
     outDir: "/var/www/instarot",

@@ -26,6 +26,35 @@ CREATE TABLE IF NOT EXISTS devices (
     last_seen   INTEGER,
     last_temp   REAL
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    device      TEXT    NOT NULL,
+    started_at  INTEGER NOT NULL,
+    ended_at    INTEGER,
+    notes       TEXT    DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_device ON sessions (device, started_at);
+
+CREATE TABLE IF NOT EXISTS programs (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL,
+    description TEXT    DEFAULT '',
+    steps       TEXT    NOT NULL DEFAULT '[]',
+    created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS program_runs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    program_id   INTEGER NOT NULL REFERENCES programs(id),
+    session_id   INTEGER REFERENCES sessions(id),
+    device       TEXT    NOT NULL,
+    started_at   INTEGER NOT NULL,
+    ended_at     INTEGER,
+    status       TEXT    NOT NULL DEFAULT 'running',
+    current_step INTEGER NOT NULL DEFAULT 0
+);
 """
 
 @contextmanager
@@ -97,6 +126,128 @@ def get_latest(device):
             ORDER BY ts DESC LIMIT 1
         """, (device,)).fetchone()
         return dict(row) if row else None
+
+# ── Sessions ─────────────────────────────────────────────────────────────────
+
+def create_session(name, device):
+    now = int(time.time())
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO sessions (name, device, started_at) VALUES (?, ?, ?)",
+            (name, device, now)
+        )
+        return cur.lastrowid
+
+def get_sessions(device=None):
+    with get_db() as conn:
+        if device:
+            rows = conn.execute(
+                "SELECT * FROM sessions WHERE device=? ORDER BY started_at DESC", (device,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM sessions ORDER BY started_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+def get_session(session_id):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM sessions WHERE id=?", (session_id,)).fetchone()
+        return dict(row) if row else None
+
+def update_session(session_id, ended_at=None, notes=None):
+    with get_db() as conn:
+        if ended_at is not None:
+            conn.execute("UPDATE sessions SET ended_at=? WHERE id=?", (ended_at, session_id))
+        if notes is not None:
+            conn.execute("UPDATE sessions SET notes=? WHERE id=?", (notes, session_id))
+
+def delete_session(session_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM sessions WHERE id=?", (session_id,))
+
+# ── Programs ──────────────────────────────────────────────────────────────────
+
+def create_program(name, description, steps):
+    import json as _json
+    now = int(time.time())
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO programs (name, description, steps, created_at) VALUES (?, ?, ?, ?)",
+            (name, description, _json.dumps(steps), now)
+        )
+        return cur.lastrowid
+
+def get_programs():
+    import json as _json
+    with get_db() as conn:
+        rows = conn.execute("SELECT * FROM programs ORDER BY created_at DESC").fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            d["steps"] = _json.loads(d["steps"])
+            result.append(d)
+        return result
+
+def get_program(program_id):
+    import json as _json
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM programs WHERE id=?", (program_id,)).fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        d["steps"] = _json.loads(d["steps"])
+        return d
+
+def update_program(program_id, name, description, steps):
+    import json as _json
+    with get_db() as conn:
+        conn.execute(
+            "UPDATE programs SET name=?, description=?, steps=? WHERE id=?",
+            (name, description, _json.dumps(steps), program_id)
+        )
+
+def delete_program(program_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM programs WHERE id=?", (program_id,))
+
+# ── Program Runs ──────────────────────────────────────────────────────────────
+
+def create_program_run(program_id, session_id, device):
+    now = int(time.time())
+    with get_db() as conn:
+        cur = conn.execute(
+            "INSERT INTO program_runs (program_id, session_id, device, started_at) VALUES (?, ?, ?, ?)",
+            (program_id, session_id, device, now)
+        )
+        return cur.lastrowid
+
+def get_program_run(run_id):
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM program_runs WHERE id=?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+def get_program_runs(program_id=None):
+    with get_db() as conn:
+        if program_id:
+            rows = conn.execute(
+                "SELECT * FROM program_runs WHERE program_id=? ORDER BY started_at DESC",
+                (program_id,)
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM program_runs ORDER BY started_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+def update_program_run(run_id, status=None, current_step=None, ended_at=None):
+    with get_db() as conn:
+        if status is not None:
+            conn.execute("UPDATE program_runs SET status=? WHERE id=?", (status, run_id))
+        if current_step is not None:
+            conn.execute("UPDATE program_runs SET current_step=? WHERE id=?", (current_step, run_id))
+        if ended_at is not None:
+            conn.execute("UPDATE program_runs SET ended_at=? WHERE id=?", (ended_at, run_id))
 
 def downsample_and_cull():
     now = int(time.time())

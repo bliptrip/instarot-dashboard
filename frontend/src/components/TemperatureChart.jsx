@@ -11,7 +11,7 @@ const RANGES = [
   { label: "30d", seconds: 2592000, resolution: "1hr"   },
 ];
 
-export default function TemperatureChart({ device }) {
+export default function TemperatureChart({ device, session }) {
   const [data,   setData]   = useState([]);
   const [range,  setRange]  = useState(RANGES[0]);
   const [brush,  setBrush]  = useState({ startIndex: 0, endIndex: 0 });
@@ -24,24 +24,29 @@ export default function TemperatureChart({ device }) {
   const prevLiveRef  = useRef(null);
 
   useEffect(() => {
-    const end   = Math.floor(Date.now() / 1000);
-    const start = end - range.seconds;
-    fetch(`/api/history/${device}?start=${start}&end=${end}&resolution=${range.resolution}`)
+    let url;
+    if (session) {
+      url = `/api/history/${device}?session_id=${session.id}`;
+    } else {
+      const end   = Math.floor(Date.now() / 1000);
+      const start = end - range.seconds;
+      url = `/api/history/${device}?start=${start}&end=${end}&resolution=${range.resolution}`;
+    }
+    fetch(url)
       .then(r => r.json())
       .then(rows => {
-        const mapped = rows.map(r => ({
-          ...r,
-          time: new Date(r.ts * 1000).toLocaleTimeString(),
-        }));
+        const fmt = session ? (ts) => new Date(ts * 1000).toLocaleString() : (ts) => new Date(ts * 1000).toLocaleTimeString();
+        const mapped = rows.map(r => ({ ...r, time: fmt(r.ts) }));
         setData(mapped);
         setBrush({ startIndex: 0, endIndex: mapped.length - 1 });
         setPaused(false);
         prevLiveRef.current = null;
       });
-  }, [device, range]);
+  }, [device, range, session]);
 
-  // Append live readings only when not paused
+  // Append live readings only when not paused and not viewing a completed session
   useEffect(() => {
+    if (session?.ended_at) return;
     if (range.resolution !== "raw") return;
     if (paused) return;
     const live = liveReadings[device];
@@ -54,7 +59,7 @@ export default function TemperatureChart({ device }) {
       setBrush({ startIndex: 0, endIndex: next.length - 1 });
       return next;
     });
-  }, [liveReadings, device, range, paused]);
+  }, [liveReadings, device, range, paused, session]);
 
   const handleBrush = ({ startIndex, endIndex }) => {
     setPaused(true);
@@ -67,27 +72,41 @@ export default function TemperatureChart({ device }) {
     setPaused(false);
   };
 
+  const isLiveMode = !session && range.resolution === "raw";
+
   return (
     <div className="chart-panel">
-      <div className="range-selector">
-        {RANGES.map(r => (
-          <button
-            key={r.label}
-            className={range.label === r.label ? "active" : ""}
-            onClick={() => setRange(r)}
-          >
-            {r.label}
-          </button>
-        ))}
-        {range.resolution === "raw" && (
-          <button
-            className={`live-toggle ${paused ? "paused" : "live"}`}
-            onClick={paused ? handleResume : () => setPaused(true)}
-          >
-            {paused ? "▶ Resume" : "⏸ Pause"}
-          </button>
-        )}
-      </div>
+      {session ? (
+        <div className="session-chart-header">
+          <span className="session-chart-label">Session: <strong>{session.name}</strong></span>
+          <span className="session-chart-device">{session.device}</span>
+          <span className="session-chart-time">
+            {new Date(session.started_at * 1000).toLocaleString()}
+            {" — "}
+            {session.ended_at ? new Date(session.ended_at * 1000).toLocaleString() : "ongoing"}
+          </span>
+        </div>
+      ) : (
+        <div className="range-selector">
+          {RANGES.map(r => (
+            <button
+              key={r.label}
+              className={range.label === r.label ? "active" : ""}
+              onClick={() => setRange(r)}
+            >
+              {r.label}
+            </button>
+          ))}
+          {isLiveMode && (
+            <button
+              className={`live-toggle ${paused ? "paused" : "live"}`}
+              onClick={paused ? handleResume : () => setPaused(true)}
+            >
+              {paused ? "▶ Resume" : "⏸ Pause"}
+            </button>
+          )}
+        </div>
+      )}
       <ResponsiveContainer width="100%" height={324}>
         <LineChart data={data}>
           <XAxis dataKey="time" />

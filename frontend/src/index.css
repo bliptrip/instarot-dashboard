@@ -128,3 +128,125 @@ h1 { margin-bottom: 1.5rem; font-size: 1.5rem; color: var(--orange); }
 .pid-section-header:hover { color: var(--orange); }
 .pid-section-chevron { display: inline-block; transition: transform 0.2s; }
 .pid-section-chevron.collapsed { transform: rotate(-90deg); }
+
+/* ── App header & tabs ───────────────────────────────────────────────────── */
+.app-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem;
+}
+.app-header h1 { margin-bottom: 0; }
+.tab-bar { display: flex; gap: 0.4rem; }
+.tab-btn {
+  padding: 0.35rem 1rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted); cursor: pointer; font-size: 0.9rem;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { border-color: var(--orange); color: var(--orange); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+/* ── Generic panel layout ────────────────────────────────────────────────── */
+.panel { display: flex; flex-direction: column; gap: 1.5rem; }
+.panel-section {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1.25rem;
+}
+.panel-section h3 { font-size: 0.95rem; margin-bottom: 0.75rem; color: var(--text); }
+.panel-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.panel-col { display: flex; flex-direction: column; gap: 0.5rem; }
+.panel-col label { font-size: 0.8rem; color: var(--muted); }
+.panel-col input, .panel-col select, .panel-col textarea {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); padding: 0.35rem 0.6rem; font-size: 0.85rem;
+}
+.panel-col textarea { font-family: monospace; resize: vertical; }
+.panel-col button {
+  align-self: flex-start; padding: 0.35rem 0.9rem;
+  background: var(--orange); border: none; border-radius: 5px;
+  color: #000; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+}
+.panel-col button:disabled { opacity: 0.4; cursor: default; }
+.panel-row input, .panel-row select {
+  flex: 1; min-width: 0; padding: 0.35rem 0.6rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.85rem;
+}
+.panel-row button {
+  padding: 0.35rem 0.9rem;
+  background: var(--orange); border: none; border-radius: 5px;
+  color: #000; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+}
+.muted-text { color: var(--muted); font-size: 0.85rem; }
+.steps-hint { font-size: 0.75rem; color: var(--muted); }
+.steps-hint code { color: var(--blue); }
+.steps-editor { min-height: 200px; }
+
+/* ── Small buttons ───────────────────────────────────────────────────────── */
+.btn-sm {
+  padding: 0.2rem 0.55rem; font-size: 0.78rem;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--muted); cursor: pointer;
+}
+.btn-sm:hover { border-color: var(--text); color: var(--text); }
+.btn-danger { border-color: var(--red) !important; color: var(--red) !important; }
+.btn-danger:hover { background: #3b0d0d !important; }
+
+/* ── Sessions ────────────────────────────────────────────────────────────── */
+.session-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.session-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--border);
+  border-radius: 7px; background: var(--bg); gap: 0.75rem;
+}
+.session-row.active { border-color: var(--green); }
+.session-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.session-name { font-weight: 600; font-size: 0.9rem; }
+.session-meta { font-size: 0.75rem; color: var(--muted); }
+.session-badge {
+  display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem;
+  background: #14532d; color: var(--green); border-radius: 3px; font-weight: 600;
+  width: fit-content;
+}
+.session-actions { display: flex; gap: 0.35rem; flex-shrink: 0; }
+
+/* ── Session chart header ────────────────────────────────────────────────── */
+.session-chart-header {
+  display: flex; align-items: baseline; gap: 0.75rem;
+  flex-wrap: wrap; margin-bottom: 0.75rem; font-size: 0.85rem;
+}
+.session-chart-label { color: var(--text); }
+.session-chart-device { color: var(--blue); }
+.session-chart-time { color: var(--muted); font-size: 0.78rem; }
+
+/* ── Session banner ──────────────────────────────────────────────────────── */
+.session-banner {
+  background: #14532d; border: 1px solid var(--green); border-radius: 7px;
+  padding: 0.5rem 0.9rem; font-size: 0.85rem; margin-bottom: 0.75rem;
+  display: flex; align-items: center;
+}
+
+/* ── Programs ────────────────────────────────────────────────────────────── */
+.program-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.6rem 0.75rem; border: 1px solid var(--border);
+  border-radius: 7px; background: var(--bg); gap: 0.75rem; margin-bottom: 0.5rem;
+}
+.program-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.program-name { font-weight: 600; font-size: 0.9rem; }
+.program-desc { font-size: 0.78rem; color: var(--muted); }
+.program-steps { font-size: 0.75rem; color: var(--blue); }
+
+/* ── Run rows ────────────────────────────────────────────────────────────── */
+.run-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.5rem 0.75rem; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg); font-size: 0.82rem;
+  margin-bottom: 0.4rem;
+}
+.run-running { border-color: var(--green); }
+.run-completed { border-color: var(--border); opacity: 0.7; }
+.run-stopped, .run-error { border-color: var(--red); opacity: 0.7; }
+.run-device { font-weight: 600; flex: 1; }
+.run-status { color: var(--muted); }
+.run-step { color: var(--blue); }
+.run-elapsed { color: var(--muted); margin-left: auto; }
