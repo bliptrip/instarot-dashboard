@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS readings (
     kp          REAL,
     ki          REAL,
     kd          REAL,
+    error       REAL,
+    error_p     REAL,
+    error_i     REAL,
+    error_d     REAL,
     resolution  TEXT    NOT NULL DEFAULT 'raw',
     ts          INTEGER NOT NULL
 );
@@ -72,12 +76,19 @@ def get_db():
 def init_db():
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        _migrate_db(conn)
+
+def _migrate_db(conn):
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(readings)").fetchall()}
+    for col in ("error", "error_p", "error_i", "error_d"):
+        if col not in existing:
+            conn.execute(f"ALTER TABLE readings ADD COLUMN {col} REAL")
 
 def insert_batch(rows):
     with get_db() as conn:
         conn.executemany("""
-            INSERT INTO readings (device, tc1_temp, tc2_temp, setpoint, output, kp, ki, kd, ts)
-            VALUES (:device, :tc1_temp, :tc2_temp, :setpoint, :output, :kp, :ki, :kd, :ts)
+            INSERT INTO readings (device, tc1_temp, tc2_temp, setpoint, output, kp, ki, kd, error, error_p, error_i, error_d, ts)
+            VALUES (:device, :tc1_temp, :tc2_temp, :setpoint, :output, :kp, :ki, :kd, :error, :error_p, :error_i, :error_d, :ts)
         """, rows)
 
 def upsert_device(hostname, ts, temp):
@@ -107,7 +118,7 @@ def get_history(device, start_ts, end_ts, resolution="raw"):
         step = max(1, count // config.MAX_CHART_POINTS)
 
         rows = conn.execute("""
-            SELECT ts, tc1_temp, tc2_temp, setpoint, output, kp, ki, kd
+            SELECT ts, tc1_temp, tc2_temp, setpoint, output, kp, ki, kd, error, error_p, error_i, error_d
             FROM (
                 SELECT *, ROW_NUMBER() OVER (ORDER BY ts ASC) rn
                 FROM readings

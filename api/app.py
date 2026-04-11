@@ -69,11 +69,7 @@ def stream_pids(device):
     import paho.mqtt.client as mqtt
     def on_connect(client, userdata, flags, rc):
         log.info(f"MQTT connected (rc={rc})")
-        #Publish command to send realtime pid data
-        log.info(f"Enable publish_pids for device {device}.")
-        client.publish(f"instarot/{device}/cmd/publish_pids",
-                       payload=str(1))
-        client.subscribe(f'instarot/{device}/state_pid')
+        client.subscribe(f'instarot/{device}/state')
 
     def on_message(client, userdata, msg):
         try:
@@ -82,24 +78,23 @@ def stream_pids(device):
             hostname = msg.topic.split("/")[1]
             now = int(time.time())
             pid_state = {
-                "device": hostname,
+                "device":   hostname,
                 "setpoint": payload.get("setpoint"),
-                "temp": payload.get("current_temp"),
-                "error": payload.get("error"),
-                "error_p": payload.get("error_p"),
-                "error_i": payload.get("error_i"),
-                "error_d": payload.get("error_d"),
-                "output": payload.get("output"),
-                "kp": payload.get("kp"),
-                "ki": payload.get("ki"),
-                "kd": payload.get("kd"),
-                "ts": payload.get("ts", now),
+                "temp":     payload.get("tc1_temp"),
+                "error":    payload.get("error"),
+                "error_p":  payload.get("error_p"),
+                "error_i":  payload.get("error_i"),
+                "error_d":  payload.get("error_d"),
+                "output":   payload.get("output"),
+                "kp":       payload.get("kp"),
+                "ki":       payload.get("ki"),
+                "kd":       payload.get("kd"),
+                "ts":       payload.get("ts", now),
             }
             log.debug(f"Received payload on {msg.topic}: {pid_state}")
             q.put(json.dumps(pid_state))
         except Exception as e:
             log.warning(f"Bad payload on {msg.topic}: {e}")
-            pass
 
     q = queue.Queue(maxsize=30)
     client = mqtt.Client(userdata=q)
@@ -118,15 +113,7 @@ def stream_pids(device):
                 except queue.Empty:
                     log.debug(f"generate(): Nothing in queue, generating heartbeat.")
                     yield ": heartbeat\n\n"
-        except GeneratorExit:
-            #First disable the debug publishing of active pid data
-            client.publish(f"instarot/{device}/cmd/publish_pids",
-                        payload=str(0))
-            client.loop_stop()
-        except OSError: #Also handle client disconnect events
-            #First disable the debug publishing of active pid data
-            client.publish(f"instarot/{device}/cmd/publish_pids",
-                        payload=str(0))
+        except (GeneratorExit, OSError):
             client.loop_stop()
 
     return Response(stream_with_context(generate()),

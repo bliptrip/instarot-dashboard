@@ -52,6 +52,10 @@ def on_message(client, userdata, msg):
             "kp":       payload.get("kp"),
             "ki":       payload.get("ki"),
             "kd":       payload.get("kd"),
+            "error":    payload.get("error"),
+            "error_p":  payload.get("error_p"),
+            "error_i":  payload.get("error_i"),
+            "error_d":  payload.get("error_d"),
             "ts":       payload.get("ts", now),
         }
         with buffer_lock:

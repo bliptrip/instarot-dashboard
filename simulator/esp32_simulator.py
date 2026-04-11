@@ -7,13 +7,11 @@ State (setpoint, PID parameters) persists across restarts via a JSON file.
 
 MQTT topics (mirrors real firmware):
   Publishes:
-    instarot/{hostname}/state       - periodic state (1 Hz)
-    instarot/{hostname}/state_pid   - live PID debug (only when enabled)
+    instarot/{hostname}/state       - combined state + PID debug at 250 ms
 
   Subscribes:
     instarot/{hostname}/cmd/setpoint     - plain float string, e.g. "225.0"
     instarot/{hostname}/cmd/pid          - JSON {"kp":..., "ki":..., "kd":...}
-    instarot/{hostname}/cmd/publish_pids - "1" to enable, "0" to disable
 
 Thermal model (first-order):
   dT/dt = (P_max * (output/100) - k_loss * (T - T_amb)) / thermal_mass
@@ -43,7 +41,7 @@ MQTT_PORT       = int(os.environ.get("MQTT_PORT",        "1883"))
 STATE_FILE      = os.environ.get("SIMULATOR_STATE_FILE",
                                  os.path.join(os.path.dirname(__file__),
                                               "simulator_state.json"))
-STATE_INTERVAL  = float(os.environ.get("STATE_INTERVAL",  "1.0"))   # seconds
+STATE_INTERVAL  = float(os.environ.get("STATE_INTERVAL",  "0.25"))  # seconds (matches firmware PID_INTERVAL_MS=250)
 SIM_DT          = float(os.environ.get("SIM_DT",          "0.1"))    # simulation timestep (s)
 
 # ---------------------------------------------------------------------------
@@ -238,7 +236,6 @@ class ESP32Simulator:
             self._state["kd"],
         )
         self._output         = 0.0
-        self._publish_pids   = False
         self._running        = True
         self._last_save      = time.monotonic()
         self._last_state_pub = time.monotonic() - STATE_INTERVAL
@@ -261,7 +258,6 @@ class ESP32Simulator:
         base = f"instarot/{HOSTNAME}/cmd"
         client.subscribe(f"{base}/setpoint")
         client.subscribe(f"{base}/pid")
-        client.subscribe(f"{base}/publish_pids")
         log.info("Subscribed to command topics")
 
     def _on_disconnect(self, client, userdata, rc):
@@ -277,8 +273,6 @@ class ESP32Simulator:
             self._handle_setpoint(payload)
         elif topic.endswith("/cmd/pid"):
             self._handle_pid(payload)
-        elif topic.endswith("/cmd/publish_pids"):
-            self._handle_publish_pids(payload)
 
     # ------------------------------------------------------------------
     # Command handlers
@@ -316,12 +310,6 @@ class ESP32Simulator:
         log.info(f"PID params -> kp={self._state['kp']} ki={self._state['ki']} kd={self._state['kd']}")
         save_state(self._state)
 
-    def _handle_publish_pids(self, payload: str):
-        enabled = payload.strip() == "1"
-        with self._lock:
-            self._publish_pids = enabled
-        log.info(f"publish_pids -> {enabled}")
-
     # ------------------------------------------------------------------
     # Simulation loop
     # ------------------------------------------------------------------
@@ -354,23 +342,14 @@ class ESP32Simulator:
             with self._lock:
                 self._state["temperature"] = self._thermal.temp
                 self._state["tc2_temp"]    = self._thermal.tc2_temp
-                self._last_output  = output
-                self._last_error   = error
-                self._last_p_term  = p_term
-                self._last_i_term  = i_term
-                self._last_d_term  = d_term
-                should_pub_pids    = self._publish_pids
 
             wall_ts = int(time.time())
 
-            # Publish state_pid every sim tick when enabled
-            if should_pub_pids:
-                self._publish_state_pid(tc1, setpoint, error, p_term, i_term, d_term, output, wall_ts)
-
-            # Publish state at configured interval
+            # Publish combined state + PID debug at configured interval
             if time.monotonic() - self._last_state_pub >= STATE_INTERVAL:
                 self._last_state_pub = time.monotonic()
-                self._publish_state(tc1, self._thermal.read_tc2(), setpoint, output, wall_ts)
+                self._publish_state(tc1, self._thermal.read_tc2(), setpoint,
+                                    output, error, p_term, i_term, d_term, wall_ts)
 
             # Persist state every 30 s
             if time.time() - self._last_save >= 30:
@@ -386,13 +365,20 @@ class ESP32Simulator:
     # ------------------------------------------------------------------
 
     def _publish_state(self, tc1: float, tc2: float, setpoint: float,
-                       output: float, ts: int):
+                       output: float, error: float, p: float, i: float,
+                       d: float, ts: int):
         with self._lock:
             kp, ki, kd = self._state["kp"], self._state["ki"], self._state["kd"]
         payload = json.dumps({
             "tc1_temp": round(tc1, 2),
+            "tc1_raw":  round(tc1, 2),
             "tc2_temp": round(tc2, 2),
+            "tc2_raw":  round(tc2, 2),
             "setpoint": round(setpoint, 2),
+            "error":    round(error, 4),
+            "error_p":  round(p, 4),
+            "error_i":  round(i, 5),
+            "error_d":  round(d, 4),
             "output":   round(output, 2),
             "kp":       kp,
             "ki":       ki,
@@ -401,27 +387,6 @@ class ESP32Simulator:
         })
         self._client.publish(f"instarot/{HOSTNAME}/state", payload, retain=True)
         log.debug(f"TX state: {payload}")
-
-    def _publish_state_pid(self, current_temp: float, setpoint: float,
-                           error: float, p: float, i: float, d: float,
-                           output: float, ts: int):
-        with self._lock:
-            kp, ki, kd = self._state["kp"], self._state["ki"], self._state["kd"]
-        payload = json.dumps({
-            "current_temp": round(current_temp, 2),
-            "setpoint":     round(setpoint, 2),
-            "error":        round(error, 4),
-            "error_p":      round(p, 4),
-            "error_i":      round(i, 4),
-            "error_d":      round(d, 4),
-            "output":       round(output, 2),
-            "kp":           kp,
-            "ki":           ki,
-            "kd":           kd,
-            "ts":           ts,
-        })
-        self._client.publish(f"instarot/{HOSTNAME}/state_pid", payload)
-        log.debug(f"TX state_pid: {payload}")
 
     # ------------------------------------------------------------------
     # Lifecycle
